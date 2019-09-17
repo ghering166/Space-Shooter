@@ -1,19 +1,29 @@
+import processing.serial.*;
+import cc.arduino.*;
+Arduino arduino;
+
 PImage asteroide;
 PImage nave;
 PImage missel;
-PImage GanhouFundo;
-PImage PerdeuFundo;
-PImage NeutroFundo;
 PFont Fonte;
 //definição das imagens e fontes
 
+//variaveis utilizadas no modo arduino
+
+float vx,vy; //valores de velocidade usados na movimentação por arduino
+int horizontal = 0; // coordenada horizontal do analogico do arduino
+int vertical = 0; // coordenada vertical do analogico do arduino
+
+
 int num = 2; //Quantidade de asteroides
+ArrayList<meteoro> meteoros = new ArrayList<meteoro>();
 float [] x=new float[num];
 float [] y=new float[num];
 
 
 
 int quant = 6;// Quantidade máxima de misséis que podem ter na tela
+ArrayList<Missel> estoque = new ArrayList<Missel>();
 float [] x1=new float[quant];
 float [] y1=new float[quant];
 
@@ -33,6 +43,16 @@ void setup(){
   background(255,255,255);
   noCursor();
   size(900,550);
+  
+  /* //Entradas do arduino
+  
+  arduino = new Arduino(this, Arduino.list()[4], 57600);
+  arduino.pinMode(3,Arduino.INPUT);
+  horizontal = arduino.analogRead(0);
+  vertical = arduino.analogRead(1);
+  atira = arduino.digitalRead(3);
+  */
+  
   nave = loadImage("diferente_nave.png");
   asteroide = loadImage("novo_asteroide.png");
   missel = loadImage("diferente_missel.png");
@@ -40,6 +60,10 @@ void setup(){
   NeutroFundo = loadImage("espaço.png");
   PerdeuFundo = loadImage("Impacto.png");
   GanhouFundo = loadImage("atmosfera.png");
+  
+  for(int i=0;i<quant;i++){
+    estoque.add(new Missel());
+  }
   
   for(int i=0;i<num;i++)
   {criado[i]=false; 
@@ -51,28 +75,8 @@ void setup(){
 }
 
 void draw(){
-  if(ganhou) // Geração da tela de vitória
-  {
-    GanhouFundo.resize(width,height);
-    image(GanhouFundo,0,0);
-    textSize(36);
-    text("VOCÊ SALVOU O PLANETA !!!",width/2-190,height/2-160);
-
-  }
-  else if(perdeu) //Geração da tela de derrota
-  {
-    PerdeuFundo.resize(width,height);
-    image(PerdeuFundo,0,0);
-    textSize(36);
-    text("O PLANETA FOI DESTRUIDO !!!",width/2-195,height/2+160);
-  }
-  else //A tela de jogabilidade
-  {
-   NeutroFundo.resize(width,height);
-   image(NeutroFundo,0,0);
-    fill(255,255,255);
-   text(cont,10,50);
-  }
+ CriaCenario();
+ 
  for(int i=0;i<num;i++)
  {
    if(!criado[i] && !ganhou && !perdeu && cont!=1)
@@ -97,14 +101,8 @@ void draw(){
  //Cria a nave
  if(neutro)
  {
-   CriaNave();
+   CriaNaveMouse();
  }
- //Checa se os tiros atingiram o limite da tela
-   for(int i = 0;i<quant;i++)
-   {
-     if(y1[i]<=-20)
-       tiro[i] = false;
-   }
    
  //Atualiza a posição dos tiros feitos
  for(int i = 0;i<quant;i++)
@@ -113,7 +111,7 @@ void draw(){
  }
  //Checagem de colisão dos tiros com os asteroides
  
-  ChecaImpacto();
+  ChecaColisao();
  
  //Checagem de vitória 
  if(cont==0  )
@@ -164,24 +162,13 @@ void draw(){
  
 }
 
-void ChecaImpacto() 
-{
-  for(int i = 0;i<quant;i++)
- {
-     for(int j = 0;j<num;j++)
-     {
-      if(y1[i]<=(y[j]+60) && y1[i]>=y[j] && x1[i]<=(x[j]+60) && x1[i]>=(x[j]-59))
-       {
-        tiro[i]=false;
-        criado[j]=false;
-        cont--;
-       }
-     }
- }
-}
+
 
 void MoveTiro(int T) // Atualiza posição do míssel
 {
+   //Checa se os tiros atingiram o limite da tela
+  if(y1[T]<=-20)
+       tiro[T] = false;
   if(tiro[T])
    {
     y1[T]-= 4.0;
@@ -199,6 +186,17 @@ void mouseClicked(){
 
 void ChecaTiro(int ind) // Verifica se existe um míssel que ainda não foi disparado e o renderiza
 {
+  /* //Uso de stack para guardar misseis ainda nao disparados
+  if(estoque.size()!=0){
+    int quantidade = estoque.size();
+    Missel objeto = estoque.get(quantidade-1);
+    objeto.toggleAtivo();
+    objeto.posX = mouseX-10;
+    objeto.posY = mouseY-20;
+    estoque.remove(quantidade-1);
+  }
+  */
+  
  for(int i=0;i<ind;i++)
  {
   if(!tiro[i])
@@ -221,26 +219,5 @@ void keyPressed(){
    cont = 20;
    
    delay(2000);
- }
-}
-
-void CriaNave() // renderização da nave utlilizando as coordenadas do ponteiro
-{
-  if(mouseX<=40 || mouseX>=(width-40))
- {
-   if(mouseX<=40)
-   {nave.resize(80,80);
-   image(nave,0,mouseY);
-   }
-   else
-   {nave.resize(80,80);
-   image(nave,width-80,mouseY);
-   }
- }
- 
- else
- {
-   nave.resize(80,80);
-   image(nave,mouseX-40,mouseY);
  }
 }
